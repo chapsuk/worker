@@ -1,7 +1,3 @@
-// +build integration
-//
-// -redis:6379 needed!
-
 package worker_test
 
 import (
