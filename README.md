@@ -9,10 +9,10 @@ func main() {
 	g := worker.NewGroup()
 
 	// Init workers with wrappers for implement schedule or exclusive run
-	w1 := worker.ByTicker(time.Second, createWorker("worker #1"))
-	w2 := worker.ByTimer(time.Second, createWorker("worker #2"))
-	w3 := worker.WithLock(&locker{}, createWorker("worker #3"))
-	w4 := worker.ByTicker(time.Second, w3)
+	w1 := worker.ByTicker(createWorker("worker #1"), time.Second)
+	w2 := worker.ByTimer(createWorker("worker #2"), time.Second)
+	w3 := worker.WithLock(createWorker("worker #3"), &locker{})
+	w4 := worker.ByTicker(w3, time.Second)
 
 	// Add workers to controll group
 	g.Add(w1, w2, w3, w4)
