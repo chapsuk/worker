@@ -60,15 +60,24 @@ func ByCronSchedule(w Worker, schedule string) (Worker, error) {
 
 	return func(ctx context.Context) {
 		now := time.Now()
-
 		timer := time.NewTimer(s.Next(now).Sub(now))
 		defer timer.Stop()
 
-		select {
-		case <-ctx.Done():
-			return
-		case <-timer.C:
-			w(ctx)
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				select {
+				case <-ctx.Done():
+					return
+				case <-timer.C:
+					w(ctx)
+					now = time.Now()
+					timer.Reset(s.Next(now).Sub(now))
+				}
+			}
 		}
+
 	}, nil
 }
