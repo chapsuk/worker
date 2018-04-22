@@ -8,8 +8,7 @@ import (
 	"time"
 
 	"github.com/chapsuk/grace"
-	"github.com/chapsuk/job"
-	"github.com/chapsuk/wait"
+	"github.com/chapsuk/worker"
 )
 
 type locker struct {
@@ -27,7 +26,7 @@ func (l *locker) Unlock() {
 	atomic.StoreUint32(&l.locked, 0)
 }
 
-func createJob(msg string) func(context.Context) {
+func createWorker(msg string) func(context.Context) {
 	return func(ctx context.Context) {
 		log.Printf("start %s", msg)
 		time.Sleep(2 * time.Second)
@@ -36,25 +35,18 @@ func createJob(msg string) func(context.Context) {
 }
 
 func main() {
-	tickerJob := job.ByTicker(time.Second, createJob("ticker job"))
-	timerJob := job.ByTicker(time.Second, createJob("timer job"))
+	g := worker.NewGroup()
 
-	lockJob := job.WithLock(&locker{}, createJob("locker job"))
-	tickerLockJob := job.ByTicker(time.Second, lockJob)
+	w1 := worker.ByTicker(time.Second, createWorker("ticker job"))
+	w2 := worker.ByTimer(time.Second, createWorker("timer job"))
+	w3 := worker.WithLock(&locker{}, createWorker("with lock job"))
+	w4 := worker.Many(10, w3)
+	w5 := worker.ByTicker(time.Second, w4)
 
-	withBefore := job.Before(tickerLockJob, createJob("before job"))
-	withAfter := job.After(tickerLockJob, createJob("after job"))
+	g.Add(w1, w2, w3, w4, w5)
+	g.Run()
 
-	ctx := grace.ShutdownContext(context.Background())
+	<-grace.ShutdownContext(context.Background()).Done()
 
-	wg := wait.Group{}
-
-	wg.AddWithContext(ctx, tickerJob)
-	wg.AddWithContext(ctx, timerJob)
-	wg.AddWithContext(ctx, lockJob)
-	wg.AddWithContext(ctx, tickerLockJob)
-	wg.AddWithContext(ctx, withBefore)
-	wg.AddWithContext(ctx, withAfter)
-
-	wg.Wait()
+	g.Stop()
 }

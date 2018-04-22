@@ -1,49 +1,30 @@
-# Jobs package
+# Worker
 
-is collection of wrappers `func(contex.Context)`, allows to avoid boilerplate code for running background jobs.
 
 ## Example
 
 ```go
-
-import (
-    "context"
-    "time"
-    "log"
-
-    "github.com/chapsuk/job"
-)
-
 func main() {
-	tickerJob := job.ByTicker(time.Second, func(ctx context.Context) {
-		time.Sleep(2 * time.Second)
-		log.Print("ticker")
-	})
+	// Create controll group
+	g := worker.NewGroup()
 
-	timerJob := job.ByTimer(time.Second, func(ctx context.Context) {
-		time.Sleep(2 * time.Second)
-		log.Print("timer")
-	})
+	// Init workers with wrappers for implement schedule or exclusive run
+	w1 := worker.ByTicker(time.Second, createWorker("worker #1"))
+	w2 := worker.ByTimer(time.Second, createWorker("worker #2"))
+	w3 := worker.WithLock(&locker{}, createWorker("worker #3"))
+	w4 := worker.Many(10, w3)
+	w5 := worker.ByTicker(time.Second, w4)
 
-	go tickerJob(context.TODO())
-	go timerJob(context.TODO())
-	select {}
+	// Add workers to controll group
+	g.Add(w1, w2, w3, w4, w5)
+
+	// Start each worker in separate goroutine
+	g.Run()
+
+	// Wait stop signal: SIGTERM, SIGINT
+	<-grace.ShutdownContext(context.Background()).Done()
+
+	// Stop workers and wait until all running jobs completed
+	g.Stop()
 }
-
-// Output: 
-//
-// ≻ go run example/example.go
-// 2018/04/22 13:01:51 timer
-// 2018/04/22 13:01:51 ticker
-// 2018/04/22 13:01:53 ticker
-// 2018/04/22 13:01:54 timer
-// 2018/04/22 13:01:55 ticker
-// 2018/04/22 13:01:57 ticker
-// 2018/04/22 13:01:57 timer
-// 2018/04/22 13:01:59 ticker
-// 2018/04/22 13:02:00 timer
-// 2018/04/22 13:02:01 ticker
-// 2018/04/22 13:02:03 ticker
-// 2018/04/22 13:02:03 timer
-// 2018/04/22 13:02:05 ticker
 ```
