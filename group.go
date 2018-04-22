@@ -12,14 +12,17 @@ type Worker func(context.Context)
 type Group struct {
 	workers []Worker
 	runned  bool
-	mu      sync.Mutex
-	wg      wait.Group
+	mu      *sync.Mutex
+	wg      *wait.Group
 	ctx     context.Context
 	stop    context.CancelFunc
 }
 
 func NewGroup() *Group {
-	return &Group{}
+	return &Group{
+		mu: new(sync.Mutex),
+		wg: new(wait.Group),
+	}
 }
 
 func (g *Group) Add(w ...Worker) {
@@ -35,6 +38,7 @@ func (g *Group) Add(w ...Worker) {
 
 func (g *Group) Run() {
 	g.mu.Lock()
+	g.runned = true
 	g.ctx, g.stop = context.WithCancel(context.Background())
 	for _, w := range g.workers {
 		g.wg.AddWithContext(g.ctx, w)
