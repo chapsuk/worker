@@ -7,6 +7,8 @@ import (
 	"github.com/chapsuk/wait"
 )
 
+type Worker func(context.Context)
+
 type Group struct {
 	workers []Worker
 	runned  bool

@@ -4,14 +4,11 @@ import (
 	"context"
 	"time"
 
-	"github.com/chapsuk/wait"
+	"github.com/robfig/cron"
 )
 
-// Worker is any func
-type Worker func(context.Context)
-
 // ByTicker returns func wich run Worker by ticker each period duration
-func ByTicker(period time.Duration, w Worker) Worker {
+func ByTicker(w Worker, period time.Duration) Worker {
 	return func(ctx context.Context) {
 		ticker := time.NewTicker(period)
 		defer ticker.Stop()
@@ -33,7 +30,7 @@ func ByTicker(period time.Duration, w Worker) Worker {
 }
 
 // ByTicker returns func wich run Worker by timer each period duration after previous run
-func ByTimer(period time.Duration, w Worker) Worker {
+func ByTimer(w Worker, period time.Duration) Worker {
 	return func(ctx context.Context) {
 		timer := time.NewTimer(period)
 		defer timer.Stop()
@@ -55,31 +52,23 @@ func ByTimer(period time.Duration, w Worker) Worker {
 	}
 }
 
-// Locker interface
-type Locker interface {
-	Lock() error
-	Unlock()
-}
+func ByCronSchedule(w Worker, schedule string) (Worker, error) {
+	s, err := cron.Parse(schedule)
+	if err != nil {
+		return nil, err
+	}
 
-// WithLock returns func with call Worker in lock
-func WithLock(l Locker, w Worker) Worker {
 	return func(ctx context.Context) {
-		if err := l.Lock(); err != nil {
+		now := time.Now()
+
+		timer := time.NewTimer(s.Next(now).Sub(now))
+		defer timer.Stop()
+
+		select {
+		case <-ctx.Done():
 			return
+		case <-timer.C:
+			w(ctx)
 		}
-		defer l.Unlock()
-
-		w(ctx)
-	}
-}
-
-// Many returns func wich run Worker count times and wait until all goroutines stopped
-func Many(count int, w Worker) Worker {
-	return func(ctx context.Context) {
-		wg := wait.Group{}
-		for i := 0; i < count; i++ {
-			wg.AddWithContext(ctx, w)
-		}
-		wg.Wait()
-	}
+	}, nil
 }

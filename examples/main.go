@@ -40,10 +40,9 @@ func main() {
 	w1 := worker.ByTicker(time.Second, createWorker("ticker job"))
 	w2 := worker.ByTimer(time.Second, createWorker("timer job"))
 	w3 := worker.WithLock(&locker{}, createWorker("with lock job"))
-	w4 := worker.Many(10, w3)
-	w5 := worker.ByTicker(time.Second, w4)
+	w4 := worker.ByTicker(time.Second, w3)
 
-	g.Add(w1, w2, w3, w4, w5)
+	g.Add(w1, w2, w3, w4)
 	g.Run()
 
 	<-grace.ShutdownContext(context.Background()).Done()

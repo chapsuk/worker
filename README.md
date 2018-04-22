@@ -12,11 +12,10 @@ func main() {
 	w1 := worker.ByTicker(time.Second, createWorker("worker #1"))
 	w2 := worker.ByTimer(time.Second, createWorker("worker #2"))
 	w3 := worker.WithLock(&locker{}, createWorker("worker #3"))
-	w4 := worker.Many(10, w3)
-	w5 := worker.ByTicker(time.Second, w4)
+	w4 := worker.ByTicker(time.Second, w3)
 
 	// Add workers to controll group
-	g.Add(w1, w2, w3, w4, w5)
+	g.Add(w1, w2, w3, w4)
 
 	// Start each worker in separate goroutine
 	g.Run()
