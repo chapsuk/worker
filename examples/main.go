@@ -37,10 +37,10 @@ func createWorker(msg string) func(context.Context) {
 func main() {
 	g := worker.NewGroup()
 
-	w1 := worker.ByTicker(time.Second, createWorker("ticker job"))
-	w2 := worker.ByTimer(time.Second, createWorker("timer job"))
-	w3 := worker.WithLock(&locker{}, createWorker("with lock job"))
-	w4 := worker.ByTicker(time.Second, w3)
+	w1 := worker.ByTicker(createWorker("ticker job"), time.Second)
+	w2 := worker.ByTimer(createWorker("timer job"), time.Second)
+	w3 := worker.WithLock(createWorker("with lock job"), &locker{})
+	w4 := worker.ByTicker(w3, time.Second)
 
 	g.Add(w1, w2, w3, w4)
 	g.Run()
