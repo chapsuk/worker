@@ -83,3 +83,21 @@ func (w *Worker) Run(ctx context.Context) {
 
 	job(ctx)
 }
+
+func (w *Worker) RunOnce(ctx context.Context) {
+	job := w.job
+
+	if w.metricsObserver != nil {
+		job = func(ctx context.Context) {
+			start := time.Now()
+			w.job(ctx)
+			w.metricsObserver(time.Since(start).Seconds())
+		}
+	}
+
+	if w.locker != nil {
+		job = w.locker(ctx, job)
+	}
+
+	job(ctx)
+}
