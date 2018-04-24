@@ -42,8 +42,8 @@ func (w *Worker) ByCronSpec(spec string) *Worker {
 	return w
 }
 
-func (w *Worker) WithLock(l LockFunc) *Worker {
-	w.locker = l
+func (w *Worker) WithLock(l Locker) *Worker {
+	w.locker = WithLock(l)
 	return w
 }
 

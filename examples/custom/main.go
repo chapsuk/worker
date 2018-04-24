@@ -2,9 +2,9 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log"
 	"sync/atomic"
-	"time"
 
 	"github.com/chapsuk/grace"
 	"github.com/chapsuk/worker"
@@ -34,19 +34,11 @@ func main() {
 		}
 	}
 
-	// custom lock func, timeout before run
-	lockFunc := func(timeout time.Duration) func(ctx context.Context, j worker.Job) worker.Job {
-		return func(ctx context.Context, j worker.Job) worker.Job {
-			return func(ctx context.Context) {
-				time.Sleep(timeout)
-				j(ctx)
-			}
-		}
-	}
+	customLocker := &customLocker{}
 
 	wrk1 := worker.New(job1).BySchedule(scheduleFunc(&r1))
-	wrk2 := worker.New(job2).BySchedule(scheduleFunc(&r2)).WithLock(lockFunc(time.Second))
-	wrk3 := worker.New(job3).BySchedule(scheduleFunc(&r3)).WithLock(lockFunc(time.Second))
+	wrk2 := worker.New(job2).BySchedule(scheduleFunc(&r2)).WithLock(customLocker)
+	wrk3 := worker.New(job3).BySchedule(scheduleFunc(&r3)).WithLock(customLocker)
 	wrk4 := worker.New(job4).BySchedule(scheduleFunc(&r4))
 
 	wk := worker.NewGroup()
@@ -56,6 +48,21 @@ func main() {
 	<-grace.ShutdownContext(context.Background()).Done()
 
 	wk.Stop()
+}
+
+type customLocker struct {
+	locked int32
+}
+
+func (c *customLocker) Lock() error {
+	if atomic.CompareAndSwapInt32(&c.locked, 0, 1) {
+		return nil
+	}
+	return errors.New("locked")
+}
+
+func (c *customLocker) Unlock() {
+	atomic.StoreInt32(&c.locked, 0)
 }
 
 func incrementJobFunc(name string, target *int32, delta int32) func(context.Context) {

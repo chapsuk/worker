@@ -11,14 +11,14 @@ import (
 
 type LockFunc func(context.Context, Job) Job
 
-// SimpleLocker interface
-type SimpleLocker interface {
+// Locker interface
+type Locker interface {
 	Lock() error
 	Unlock()
 }
 
 // WithLock returns func with call Worker in lock
-func WithLock(l SimpleLocker) LockFunc {
+func WithLock(l Locker) LockFunc {
 	return func(ctx context.Context, j Job) Job {
 		return func(ctx context.Context) {
 			if err := l.Lock(); err != nil {
