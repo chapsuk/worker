@@ -84,6 +84,7 @@ func (w *Worker) Run(ctx context.Context) {
 	job(ctx)
 }
 
+// RunOnce run job without schedule func
 func (w *Worker) RunOnce(ctx context.Context) {
 	job := w.job
 
