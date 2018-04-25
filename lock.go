@@ -9,11 +9,14 @@ import (
 	"go.uber.org/zap"
 )
 
+// LockFunc is job wrapper for controll exclusive execution
 type LockFunc func(context.Context, Job) Job
 
 // Locker interface
 type Locker interface {
+	// Lock acquire lock for job, returns error when the job should not be started
 	Lock() error
+	// Unlock release acquired lock
 	Unlock()
 }
 
@@ -32,6 +35,7 @@ func WithLock(l Locker) LockFunc {
 
 // ------ Redis family locks -------
 
+// RedisClient interface define all used functions from github.com/go-redis/redis
 type RedisClient interface {
 	SetNX(key string, value interface{}, expiration time.Duration) *redis.BoolCmd
 	Eval(script string, keys []string, args ...interface{}) *redis.Cmd
@@ -41,25 +45,36 @@ type RedisClient interface {
 	Del(keys ...string) *redis.IntCmd
 }
 
-type redisLockLogger interface {
+// RedisLockLogger all needed logger funcs
+type RedisLockLogger interface {
 	Errorw(msg string, keysAndValues ...interface{})
 	Warnw(msg string, keysAndValues ...interface{})
 }
 
+// RedisLockOptions describe redis lock settings
 type RedisLockOptions struct {
 	LockKey  string
 	LockTTL  time.Duration
 	RedisCLI RedisClient
-	Logger   redisLockLogger
+	Logger   RedisLockLogger
 }
 
-func (opts *RedisLockOptions) GetLogger() redisLockLogger {
+// GetLogger return logger from options or zap.Noop logger
+func (opts *RedisLockOptions) GetLogger() RedisLockLogger {
 	if opts.Logger == nil {
 		return zap.S()
 	}
 	return opts.Logger
 }
 
+// NewWith returns new redis lock options with given key name and ttl from source options
+func (opts RedisLockOptions) NewWith(lockkey string, lockttl time.Duration) RedisLockOptions {
+	opts.LockKey = lockkey
+	opts.LockTTL = lockttl
+	return opts
+}
+
+// WithRedisLock returns job wrapper func with redis lock
 func WithRedisLock(opts RedisLockOptions) LockFunc {
 	return func(ctx context.Context, j Job) Job {
 		return func(ctx context.Context) {
@@ -87,12 +102,28 @@ func WithRedisLock(opts RedisLockOptions) LockFunc {
 	}
 }
 
+// BsmRedisLockOptions lock options for bsm/redis-lock locker
 type BsmRedisLockOptions struct {
 	RedisLockOptions
 	RetryCount int
 	RetryDelay time.Duration
 }
 
+// NewWith returns new bsm redis lock options from target options
+func (opts BsmRedisLockOptions) NewWith(
+	lockkey string,
+	lockttl time.Duration,
+	retries int,
+	retryDelay time.Duration,
+) BsmRedisLockOptions {
+	opts.LockKey = lockkey
+	opts.LockTTL = lockttl
+	opts.RetryCount = retries
+	opts.RetryDelay = retryDelay
+	return opts
+}
+
+// WithBsmRedisLock returns job wrapper func with redis lock by bsm/redis-lock pkg
 func WithBsmRedisLock(opts BsmRedisLockOptions) LockFunc {
 	return func(ctx context.Context, j Job) Job {
 		return func(ctx context.Context) {

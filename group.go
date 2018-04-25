@@ -7,22 +7,23 @@ import (
 	"github.com/chapsuk/wait"
 )
 
+// Group of workers controlling background jobs execution
+// allows gracefull stop all running background jobs
 type Group struct {
 	workers []*Worker
 	runned  bool
-	mu      *sync.Mutex
-	wg      *wait.Group
+	mu      sync.Mutex
+	wg      wait.Group
 	ctx     context.Context
 	stop    context.CancelFunc
 }
 
+// NewGroup yield new workers group
 func NewGroup() *Group {
-	return &Group{
-		mu: new(sync.Mutex),
-		wg: new(wait.Group),
-	}
+	return &Group{}
 }
 
+// Add workers to group, if group runned then start worker immediately
 func (g *Group) Add(workers ...*Worker) {
 	g.mu.Lock()
 	for _, w := range workers {
@@ -34,6 +35,7 @@ func (g *Group) Add(workers ...*Worker) {
 	g.mu.Unlock()
 }
 
+// Run starting each worker in separate goroutine with wait.Group controll
 func (g *Group) Run() {
 	g.mu.Lock()
 	g.runned = true
@@ -44,6 +46,8 @@ func (g *Group) Run() {
 	g.mu.Unlock()
 }
 
+// Stop cancel workers context and wait until all runned workers was completed.
+// Be careful! It can be deadlock if some worker hanging
 func (g *Group) Stop() {
 	g.mu.Lock()
 	g.stop()
