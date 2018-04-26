@@ -2,6 +2,7 @@ package worker_test
 
 import (
 	"context"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -22,6 +23,27 @@ func TestMetricsObserver(t *testing.T) {
 			for i := 0; i < 5; i++ {
 				worker.New(job).WithMetrics(obs).Run(context.Background())
 			}
+		})
+	})
+}
+
+func TestImmediately(t *testing.T) {
+	Convey("Given worker with increment job", t, func() {
+		var i int32
+		job := func(ctx context.Context) {
+			atomic.AddInt32(&i, 1)
+		}
+
+		wrk := worker.New(job)
+		Convey("It should run job 2 times", func() {
+			// immediatly and by schedule
+			wrk.BySchedule(func(ctx context.Context, j worker.Job) worker.Job {
+				return func(ctx context.Context) {
+					j(ctx)
+				}
+			}).SetImmediately(true).Run(context.Background())
+			time.Sleep(time.Millisecond)
+			So(atomic.LoadInt32(&i), ShouldEqual, 2)
 		})
 	})
 }

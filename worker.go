@@ -17,6 +17,7 @@ type Worker struct {
 	schedule        ScheduleFunc
 	locker          LockFunc
 	metricsObserver MetricObserveFunc
+	immediately     bool
 }
 
 // New returns new worker with target job
@@ -24,6 +25,12 @@ func New(job Job) *Worker {
 	return &Worker{
 		job: job,
 	}
+}
+
+// SetImmediately set execute job on Run setting
+func (w *Worker) SetImmediately(executeOnRun bool) *Worker {
+	w.immediately = executeOnRun
+	return w
 }
 
 // BySchedule set schedule wrapper func for job
@@ -88,6 +95,21 @@ func (w *Worker) Run(ctx context.Context) {
 
 	if w.locker != nil {
 		job = w.locker(ctx, job)
+	}
+
+	if w.immediately {
+		job(ctx)
+
+		if w.schedule == nil {
+			return
+		}
+
+		// check context before run immediately job again
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
 	}
 
 	if w.schedule != nil {
