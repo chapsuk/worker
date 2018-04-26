@@ -135,10 +135,10 @@ func WithBsmRedisLock(opts BsmRedisLockOptions) LockFunc {
 
 			ok, err := l.LockWithContext(ctx)
 			if !ok {
-				if err == lock.ErrLockNotObtained {
-					opts.GetLogger().Warnw("worker bsm/lock not obtained", "lock_key", opts.LockKey)
-				} else if err != nil {
+				if err != nil {
 					opts.GetLogger().Errorw("worker get bsm/lock error", "lock_key", opts.LockKey, "error", err)
+				} else {
+					opts.GetLogger().Warnw("worker bsm/lock not obtained", "lock_key", opts.LockKey)
 				}
 
 				return

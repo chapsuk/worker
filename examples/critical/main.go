@@ -17,8 +17,8 @@ func main() {
 
 	wk := worker.NewGroup()
 	wk.Add(worker.New(criticalJob(stp)).ByTicker(time.Second))
-
 	wk.Run()
+
 	select {
 	case <-ctx.Done():
 	case <-stp:

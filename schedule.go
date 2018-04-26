@@ -22,14 +22,9 @@ func ByTimer(period time.Duration) ScheduleFunc {
 				select {
 				case <-ctx.Done():
 					return
-				default:
-					select {
-					case <-ctx.Done():
-						return
-					case <-timer.C:
-						j(ctx)
-						timer.Reset(period)
-					}
+				case <-timer.C:
+					j(ctx)
+					timer.Reset(period)
 				}
 			}
 		}
@@ -79,15 +74,10 @@ func ByCronSchedule(schedule string) ScheduleFunc {
 				select {
 				case <-ctx.Done():
 					return
-				default:
-					select {
-					case <-ctx.Done():
-						return
-					case <-timer.C:
-						job(ctx)
-						now = time.Now()
-						timer.Reset(s.Next(now).Sub(now))
-					}
+				case <-timer.C:
+					job(ctx)
+					now = time.Now()
+					timer.Reset(s.Next(now).Sub(now))
 				}
 			}
 		}
