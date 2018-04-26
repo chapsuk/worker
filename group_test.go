@@ -16,12 +16,15 @@ func TestGroup(t *testing.T) {
 		So(wk, ShouldNotBeNil)
 
 		Convey("When add 3 workers", func() {
-			var counter int32
+			var (
+				counter int32
+				res     = make(chan struct{})
+			)
 
 			wk.Add(
-				worker.New(createFakeJob(&counter)),
-				worker.New(createFakeJob(&counter)),
-				worker.New(createFakeJob(&counter)),
+				worker.New(createFakeJob(&counter, res)),
+				worker.New(createFakeJob(&counter, res)),
+				worker.New(createFakeJob(&counter, res)),
 			)
 
 			Convey("workers should not be started", func() {
@@ -30,15 +33,17 @@ func TestGroup(t *testing.T) {
 
 			Convey("When run group with 3 workers", func() {
 				wk.Run()
-				time.Sleep(time.Second)
+				for i := 0; i < 3; i++ {
+					checkResulChannel(res)
+				}
 
 				Convey("all workers should be started", func() {
 					So(atomic.LoadInt32(&counter), ShouldEqual, 3)
 				})
 
 				Convey("When add worker after group run", func() {
-					wk.Add(worker.New(createFakeJob(&counter)))
-					time.Sleep(time.Second)
+					wk.Add(worker.New(createFakeJob(&counter, res)))
+					checkResulChannel(res)
 
 					Convey("added worker should be executed", func() {
 						So(atomic.LoadInt32(&counter), ShouldEqual, 4)
@@ -56,7 +61,7 @@ func TestGroup(t *testing.T) {
 						select {
 						case <-ch:
 							So("non-blocking", ShouldEqual, "non-blocking")
-						case <-time.NewTicker(time.Second).C:
+						case <-time.Tick(time.Second):
 							So("blocking", ShouldEqual, "non-blocking")
 						}
 					})
@@ -66,8 +71,21 @@ func TestGroup(t *testing.T) {
 	})
 }
 
-func createFakeJob(counter *int32) worker.Job {
+func createFakeJob(counter *int32, result chan struct{}) worker.Job {
 	return func(ctx context.Context) {
 		atomic.AddInt32(counter, 1)
+		select {
+		case result <- struct{}{}:
+		case <-ctx.Done():
+		}
+	}
+}
+
+func checkResulChannel(result chan struct{}) {
+	select {
+	case <-result:
+		So(true, ShouldBeTrue)
+	case <-time.Tick(time.Second):
+		So("get result to slow", ShouldBeNil)
 	}
 }

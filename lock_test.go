@@ -32,11 +32,18 @@ func TestRedisLock(t *testing.T) {
 				Logger:   lgr,
 			}
 
-			var i int32
+			var (
+				i     int32
+				start = make(chan struct{})
+				stop  = make(chan struct{})
+			)
+
 			job := func(ctx context.Context) {
+				start <- struct{}{}
 				atomic.AddInt32(&i, 1)
 				<-ctx.Done()
 				atomic.AddInt32(&i, 1)
+				stop <- struct{}{}
 			}
 
 			Convey("When run job with redis lock", func() {
@@ -44,23 +51,25 @@ func TestRedisLock(t *testing.T) {
 
 				ctx, cancel := context.WithCancel(context.Background())
 				go wrk.Run(ctx)
-				time.Sleep(100 * time.Millisecond)
+				checkResulChannel(start)
 
 				Convey("Repeat run should not be executed", func() {
 					wrk.Run(ctx)
 					So(atomic.LoadInt32(&i), ShouldEqual, 1)
 					So(lgr.wrnw, ShouldHaveLength, 1)
 
-					Convey("After lock timieout new job should start", func() {
+					Convey("After lock expired new job should start", func() {
 						time.Sleep(time.Second)
 						go wrk.Run(ctx)
-						time.Sleep(100 * time.Millisecond) // wait worker gourutine
+						checkResulChannel(start)
 						So(atomic.LoadInt32(&i), ShouldEqual, 2)
 						So(lgr.wrnw, ShouldHaveLength, 1)
 
 						Convey("Cancel context should stop all runeed jobs", func() {
 							cancel()
-							time.Sleep(100 * time.Millisecond)
+							checkResulChannel(stop)
+							checkResulChannel(stop)
+
 							So(atomic.LoadInt32(&i), ShouldEqual, 4)
 							So(lgr.wrnw, ShouldHaveLength, 1)
 						})
@@ -72,7 +81,10 @@ func TestRedisLock(t *testing.T) {
 	})
 
 	Convey("Given not accessible redis client", t, func() {
-		redis := redis.NewClient(&redis.Options{Addr: "127.0.0.2:8080"})
+		redis := redis.NewClient(&redis.Options{
+			Addr:        "127.0.0.2:8080",
+			DialTimeout: time.Millisecond,
+		})
 
 		lgr := &logger{}
 		opts := worker.RedisLockOptions{
@@ -117,33 +129,61 @@ func TestBsmRedisLock(t *testing.T) {
 				RetryDelay: 550 * time.Millisecond,
 			}
 
-			var i int32
+			var (
+				i     int32
+				start = make(chan struct{})
+				stop  = make(chan struct{})
+			)
+
 			job := func(ctx context.Context) {
+				start <- struct{}{}
 				atomic.AddInt32(&i, 1)
 				<-ctx.Done()
 				atomic.AddInt32(&i, 1)
+				stop <- struct{}{}
 			}
 
 			Convey("When run job with bsm redis lock", func() {
 				wrk := worker.New(job).WithBsmRedisLock(opts)
 
 				ctx, cancel := context.WithCancel(context.Background())
+
 				go wrk.Run(ctx)
+
+				select {
+				case <-start:
+					So(atomic.LoadInt32(&i), ShouldEqual, 1)
+				case <-time.Tick(2 * time.Second):
+					So("run worker, to slow", ShouldBeFalse)
+				}
 
 				Convey("Repeat run should be executed by retries", func() {
 					go wrk.Run(ctx)
-					time.Sleep(2 * time.Second)
-					So(atomic.LoadInt32(&i), ShouldEqual, 2)
 
-					Convey("After lock timieout new job should start", func() {
+					select {
+					case <-start:
+						So(atomic.LoadInt32(&i), ShouldEqual, 2)
+					case <-time.Tick(2 * time.Second):
+						So("run worker, to slow", ShouldBeFalse)
+					}
+
+					Convey("After lock expired new job should start", func() {
 						time.Sleep(time.Second)
-						go wrk.Run(ctx)
-						time.Sleep(100 * time.Millisecond) // wait worker gourutine
-						So(atomic.LoadInt32(&i), ShouldEqual, 3)
+						go wrk.WithBsmRedisLock(opts.NewWith(
+							opts.LockKey, opts.LockTTL, 0, time.Second,
+						)).Run(ctx)
+
+						select {
+						case <-start:
+							So(atomic.LoadInt32(&i), ShouldEqual, 3)
+						case <-time.Tick(2 * time.Second):
+							So("tun third job to slow", ShouldBeFalse)
+						}
 
 						Convey("Cancel context should stop all runeed jobs", func() {
 							cancel()
-							time.Sleep(100 * time.Millisecond)
+							checkResulChannel(stop)
+							checkResulChannel(stop)
 							So(atomic.LoadInt32(&i), ShouldEqual, 6)
 						})
 					})
@@ -164,11 +204,18 @@ func TestBsmRedisLock(t *testing.T) {
 				// RetryDelay: 550 * time.Millisecond,
 			}
 
-			var i int32
+			var (
+				i     int32
+				start = make(chan struct{})
+				stop  = make(chan struct{})
+			)
+
 			job := func(ctx context.Context) {
+				start <- struct{}{}
 				atomic.AddInt32(&i, 1)
 				<-ctx.Done()
 				atomic.AddInt32(&i, 1)
+				stop <- struct{}{}
 			}
 
 			Convey("When run job with bsm redis lock", func() {
@@ -176,7 +223,12 @@ func TestBsmRedisLock(t *testing.T) {
 
 				ctx, cancel := context.WithCancel(context.Background())
 				go wrk.Run(ctx)
-				time.Sleep(500 * time.Millisecond)
+				select {
+				case <-start:
+					So(atomic.LoadInt32(&i), ShouldEqual, 1)
+				case <-time.Tick(2 * time.Second):
+					So("run worker, to slow", ShouldBeFalse)
+				}
 
 				Convey("Repeat run should not execute by retries", func() {
 					wrk.Run(ctx)
@@ -186,13 +238,20 @@ func TestBsmRedisLock(t *testing.T) {
 					Convey("After lock timieout new job should start", func() {
 						time.Sleep(time.Second)
 						go wrk.Run(ctx)
-						time.Sleep(100 * time.Millisecond) // wait worker gourutine
-						So(atomic.LoadInt32(&i), ShouldEqual, 2)
-						So(lgr.wrnw, ShouldHaveLength, 1)
+
+						select {
+						case <-start:
+							So(atomic.LoadInt32(&i), ShouldEqual, 2)
+							So(lgr.wrnw, ShouldHaveLength, 1)
+						case <-time.Tick(2 * time.Second):
+							So("run worker, to slow", ShouldBeFalse)
+						}
 
 						Convey("Cancel context should stop all runeed jobs", func() {
 							cancel()
-							time.Sleep(100 * time.Millisecond)
+							checkResulChannel(stop)
+							checkResulChannel(stop)
+							<-time.Tick(time.Second)
 							So(atomic.LoadInt32(&i), ShouldEqual, 4)
 							// first job lock expired, logger should get warn
 							So(lgr.wrnw, ShouldHaveLength, 2)
@@ -204,7 +263,10 @@ func TestBsmRedisLock(t *testing.T) {
 	})
 
 	Convey("Given not accessible redis client", t, func() {
-		redis := redis.NewClient(&redis.Options{Addr: "127.0.0.2:8080"})
+		redis := redis.NewClient(&redis.Options{
+			Addr:        "127.0.0.2:8080",
+			DialTimeout: time.Millisecond,
+		})
 
 		lgr := &logger{}
 		opts := worker.BsmRedisLockOptions{
@@ -214,14 +276,11 @@ func TestBsmRedisLock(t *testing.T) {
 				LockTTL:  time.Second,
 				Logger:   lgr,
 			},
-			RetryCount: 3,
-			RetryDelay: 100 * time.Millisecond,
 		}
 
 		Convey("When try run worker", func() {
-			var i int32
 			worker.
-				New(func(context.Context) { i++ }).
+				New(func(context.Context) {}).
 				WithBsmRedisLock(opts).
 				Run(context.TODO())
 

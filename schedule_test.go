@@ -10,26 +10,32 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 )
 
-func TestCustomSchedule(t *testing.T) {
+func TestByCustomSchedule(t *testing.T) {
 	Convey("Given target int == 5, decrement job and custom schedule (until int > 0)", t, func() {
-		var i int32 = 5
-		job := func(ctx context.Context) {
-			atomic.AddInt32(&i, -1)
-		}
+		var (
+			i   int32 = 5
+			res       = make(chan struct{})
+			job       = func(ctx context.Context) {
+				atomic.AddInt32(&i, -1)
+			}
+		)
 
 		schedule := func(ctx context.Context, j worker.Job) worker.Job {
 			return func(ctx context.Context) {
 				for atomic.LoadInt32(&i) > 0 {
 					j(ctx)
 				}
+				res <- struct{}{}
 			}
 		}
 
 		Convey("When run worker", func() {
-			worker.New(job).BySchedule(schedule).Run(context.Background())
+			go worker.New(job).
+				BySchedule(schedule).
+				Run(context.Background())
 
 			Convey("Job should be executed 5 times", func() {
-				time.Sleep(50 * time.Millisecond)
+				checkResulChannel(res)
 				So(atomic.LoadInt32(&i), ShouldEqual, 0)
 			})
 		})
@@ -52,15 +58,15 @@ func TestByTimer(t *testing.T) {
 			expectedNextExecutionTime := time.Now().Add(time.Second)
 
 			Convey("job should be executed after 1s from previous run", func() {
-				timer := time.NewTimer(3 * time.Second)
+				timer := time.NewTimer(2 * time.Second)
 				defer timer.Stop()
 
-				for i := 0; i < 5; i++ {
+				for i := 0; i < 3; i++ {
 					select {
 					case r := <-res:
 						So(int64(expectedNextExecutionTime.Sub(r).Seconds()), ShouldEqual, 0)
-						expectedNextExecutionTime = r.Add(2 * time.Second)
-						timer.Reset(3 * time.Second)
+						expectedNextExecutionTime = r.Add(time.Second)
+						timer.Reset(2 * time.Second)
 					case <-timer.C:
 						So(false, ShouldBeTrue)
 					}
@@ -105,12 +111,12 @@ func TestByTicker(t *testing.T) {
 				timer := time.NewTimer(2 * time.Second)
 				defer timer.Stop()
 
-				for i := 0; i < 5; i++ {
+				for i := 0; i < 3; i++ {
 					select {
 					case r := <-res:
 						So(int64(expectedNextExecutionTime.Sub(r).Seconds()), ShouldEqual, 0)
 						expectedNextExecutionTime = r.Add(time.Second)
-						timer.Reset(3 * time.Second)
+						timer.Reset(2 * time.Second)
 					case <-timer.C:
 						So(false, ShouldBeTrue)
 					}
@@ -169,7 +175,7 @@ func TestByCronSchedule(t *testing.T) {
 
 	Convey("Given job who send to result channel execution time and sleep for 1s", t, func() {
 		res := make(chan time.Time)
-		job := createWriterJob(time.Second, res)
+		job := createWriterJob(time.Microsecond, res)
 
 		Convey("When create worker with incorrect cron spec should panic", func() {
 			So(func() { worker.New(job).ByCronSpec("завтра") }, ShouldPanic)
@@ -187,15 +193,15 @@ func TestByCronSchedule(t *testing.T) {
 			expectedNextExecutionTime := time.Now().Add(time.Second)
 
 			Convey("job should be executed every 1s", func() {
-				timer := time.NewTimer(3 * time.Second)
+				timer := time.NewTimer(2 * time.Second)
 				defer timer.Stop()
 
-				for i := 0; i < 5; i++ {
+				for i := 0; i < 3; i++ {
 					select {
 					case r := <-res:
 						So(int64(expectedNextExecutionTime.Sub(r).Seconds()), ShouldEqual, 0)
-						expectedNextExecutionTime = r.Add(2 * time.Second)
-						timer.Reset(3 * time.Second)
+						expectedNextExecutionTime = r.Add(time.Second)
+						timer.Reset(2 * time.Second)
 					case <-timer.C:
 						So(false, ShouldBeTrue)
 					}
@@ -224,7 +230,6 @@ func createWriterJob(sleep time.Duration, ch chan time.Time) worker.Job {
 	return func(ctx context.Context) {
 		select {
 		case ch <- time.Now():
-			time.Sleep(sleep)
 		case <-ctx.Done():
 		}
 	}

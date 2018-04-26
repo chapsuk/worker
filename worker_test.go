@@ -28,22 +28,61 @@ func TestMetricsObserver(t *testing.T) {
 }
 
 func TestImmediately(t *testing.T) {
-	Convey("Given worker with increment job", t, func() {
+	schedule := func(ctx context.Context, j worker.Job) worker.Job {
+		return func(ctx context.Context) {
+			j(ctx)
+		}
+	}
+
+	Convey("Given immediatly worker with increment job", t, func() {
 		var i int32
 		job := func(ctx context.Context) {
 			atomic.AddInt32(&i, 1)
 		}
 
-		wrk := worker.New(job)
+		wrk := worker.New(job).SetImmediately(true)
 		Convey("It should run job 2 times", func() {
 			// immediatly and by schedule
-			wrk.BySchedule(func(ctx context.Context, j worker.Job) worker.Job {
-				return func(ctx context.Context) {
-					j(ctx)
-				}
-			}).SetImmediately(true).Run(context.Background())
-			time.Sleep(time.Millisecond)
+			wrk.BySchedule(schedule).Run(context.Background())
 			So(atomic.LoadInt32(&i), ShouldEqual, 2)
+		})
+
+		Convey("It should run job 1 imes", func() {
+			wrk.Run(context.Background())
+			So(atomic.LoadInt32(&i), ShouldEqual, 1)
+		})
+	})
+
+	Convey("Given wait context immediatly worker", t, func() {
+		var i int32
+		res := make(chan struct{})
+		job := func(ctx context.Context) {
+			<-ctx.Done()
+			atomic.AddInt32(&i, 1)
+			res <- struct{}{}
+		}
+
+		wrk := worker.New(job).SetImmediately(true)
+		Convey("When run worker with +1 schedule", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			go wrk.BySchedule(schedule).Run(ctx)
+
+			Convey("Job should executed once when context canceled", func() {
+				cancel()
+				checkResulChannel(res)
+				So(atomic.LoadInt32(&i), ShouldEqual, 1)
+			})
+		})
+
+		Convey("When running without schedule", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			go wrk.Run(ctx)
+
+			Convey("Job should executed once", func() {
+				cancel()
+				checkResulChannel(res)
+				So(atomic.LoadInt32(&i), ShouldEqual, 1)
+			})
 		})
 	})
 }
