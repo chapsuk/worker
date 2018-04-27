@@ -8,7 +8,7 @@ import (
 )
 
 // Group of workers controlling background jobs execution
-// allows gracefull stop all running background jobs
+// allows graceful stop all running background jobs
 type Group struct {
 	workers []*Worker
 	runned  bool
@@ -35,7 +35,7 @@ func (g *Group) Add(workers ...*Worker) {
 	g.mu.Unlock()
 }
 
-// Run starting each worker in separate goroutine with wait.Group controll
+// Run starting each worker in separate goroutine with wait.Group control
 func (g *Group) Run() {
 	g.mu.Lock()
 	g.runned = true

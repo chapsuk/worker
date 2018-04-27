@@ -9,7 +9,7 @@ import (
 	"go.uber.org/zap"
 )
 
-// LockFunc is job wrapper for controll exclusive execution
+// LockFunc is job wrapper for control exclusive execution
 type LockFunc func(context.Context, Job) Job
 
 // Locker interface

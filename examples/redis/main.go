@@ -23,12 +23,7 @@ func main() {
 	bopts3 := createBsmLockOpts(redis, "lock3", time.Hour, time.Second, 0)
 	bopts4 := createBsmLockOpts(redis, "lock4", time.Hour, time.Millisecond, 10)
 
-	var (
-		r1 int32 = 0
-		r2 int32 = 0
-		r3 int32 = 0
-		r4 int32 = 0
-	)
+	var r1, r2, r3, r4 int32
 
 	job1 := createIncrementJobWithTimeout("job1", &r1, 1, time.Second)
 	job2 := createIncrementJobWithTimeout("job2", &r2, 1, time.Second)

@@ -31,7 +31,7 @@ func ByTimer(period time.Duration) ScheduleFunc {
 	}
 }
 
-// ByTicker returns func wich run Worker by ticker each period duration
+// ByTicker returns func which run Worker by ticker each period duration
 func ByTicker(period time.Duration) ScheduleFunc {
 	return func(ctx context.Context, j Job) Job {
 		return func(ctx context.Context) {

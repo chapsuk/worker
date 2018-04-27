@@ -37,7 +37,7 @@ func TestImmediately(t *testing.T) {
 		}
 	}
 
-	Convey("Given immediatly worker with increment job", t, func() {
+	Convey("Given immediately worker with increment job", t, func() {
 		var i int32
 		job := func(ctx context.Context) {
 			atomic.AddInt32(&i, 1)
@@ -45,7 +45,7 @@ func TestImmediately(t *testing.T) {
 
 		wrk := worker.New(job).SetImmediately(true)
 		Convey("It should run job 2 times", func() {
-			// immediatly and by schedule
+			// immediately and by schedule
 			wrk.BySchedule(schedule).Run(context.Background())
 			So(atomic.LoadInt32(&i), ShouldEqual, 2)
 		})
@@ -56,7 +56,7 @@ func TestImmediately(t *testing.T) {
 		})
 	})
 
-	Convey("Given wait context immediatly worker", t, func() {
+	Convey("Given wait context immediately worker", t, func() {
 		var i int32
 		res := make(chan struct{})
 		job := func(ctx context.Context) {
