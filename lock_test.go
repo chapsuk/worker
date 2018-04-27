@@ -198,6 +198,7 @@ func TestBsmRedisLock(t *testing.T) {
 							cancel()
 							checkResulChannel(stop)
 							checkResulChannel(stop)
+							checkResulChannel(stop)
 							So(atomic.LoadInt32(&i), ShouldEqual, 6)
 						})
 					})
