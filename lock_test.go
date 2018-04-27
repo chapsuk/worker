@@ -168,7 +168,7 @@ func TestBsmRedisLock(t *testing.T) {
 				case <-start:
 					So(atomic.LoadInt32(&i), ShouldEqual, 1)
 				case <-time.Tick(2 * time.Second):
-					So("run worker, to slow", ShouldBeFalse)
+					So("job not started", ShouldBeFalse)
 				}
 
 				Convey("Repeat run should be executed by retries", func() {
@@ -178,7 +178,7 @@ func TestBsmRedisLock(t *testing.T) {
 					case <-start:
 						So(atomic.LoadInt32(&i), ShouldEqual, 2)
 					case <-time.Tick(2 * time.Second):
-						So("run worker, to slow", ShouldBeFalse)
+						So("job not started", ShouldBeFalse)
 					}
 
 					Convey("After lock expired new job should start", func() {
@@ -191,7 +191,7 @@ func TestBsmRedisLock(t *testing.T) {
 						case <-start:
 							So(atomic.LoadInt32(&i), ShouldEqual, 3)
 						case <-time.Tick(2 * time.Second):
-							So("run third job to slow", ShouldBeFalse)
+							So("job not started", ShouldBeFalse)
 						}
 
 						Convey("Cancel context should stop all runeed jobs", func() {
@@ -241,7 +241,7 @@ func TestBsmRedisLock(t *testing.T) {
 				select {
 				case <-start:
 					So(atomic.LoadInt32(&i), ShouldEqual, 1)
-				case <-time.Tick(2 * time.Second):
+				case <-time.Tick(3 * time.Second):
 					So("run worker, to slow", ShouldBeFalse)
 				}
 
@@ -258,7 +258,7 @@ func TestBsmRedisLock(t *testing.T) {
 						case <-start:
 							So(atomic.LoadInt32(&i), ShouldEqual, 2)
 							So(lgr.wrnw, ShouldHaveLength, 1)
-						case <-time.Tick(2 * time.Second):
+						case <-time.Tick(3 * time.Second):
 							So("run worker, to slow", ShouldBeFalse)
 						}
 
