@@ -34,7 +34,7 @@ func TestGroup(t *testing.T) {
 			Convey("When run group with 3 workers", func() {
 				wk.Run()
 				for i := 0; i < 3; i++ {
-					checkResulChannel(res)
+					checkResultChannel(res)
 				}
 
 				Convey("all workers should be started", func() {
@@ -43,7 +43,7 @@ func TestGroup(t *testing.T) {
 
 				Convey("When add worker after group run", func() {
 					wk.Add(worker.New(createFakeJob(&counter, res)))
-					checkResulChannel(res)
+					checkResultChannel(res)
 
 					Convey("added worker should be executed", func() {
 						So(atomic.LoadInt32(&counter), ShouldEqual, 4)
@@ -81,7 +81,7 @@ func createFakeJob(counter *int32, result chan struct{}) worker.Job {
 	}
 }
 
-func checkResulChannel(result chan struct{}) {
+func checkResultChannel(result chan struct{}) {
 	select {
 	case <-result:
 		So(true, ShouldBeTrue)

@@ -35,7 +35,7 @@ func TestByCustomSchedule(t *testing.T) {
 				Run(context.Background())
 
 			Convey("Job should be executed 5 times", func() {
-				checkResulChannel(res)
+				checkResultChannel(res)
 				So(atomic.LoadInt32(&i), ShouldEqual, 0)
 			})
 		})

@@ -12,5 +12,5 @@ before_script:
   - dep ensure
 
 script:
-  - go test -v ./...
+  - go test -v -race ./...
   # - make tests
