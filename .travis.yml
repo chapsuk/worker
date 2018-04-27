@@ -5,6 +5,9 @@ go:
   - 1.10.x
   # - tip
 
+services:
+  - redis-server
+
 install:
   - go get golang.org/x/tools/cmd/cover
   - go get github.com/mattn/goveralls
