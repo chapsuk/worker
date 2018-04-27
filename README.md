@@ -2,8 +2,8 @@
 
 [![GoDoc](http://godoc.org/github.com/chapsuk/worker?status.png)](http://godoc.org/github.com/chapsuk/worker) 
 [![Build Status](https://travis-ci.com/chapsuk/worker.svg?token=m33r59zSHRPMSbqfFKFk&branch=master)](https://travis-ci.com/chapsuk/worker)
-[![CircleCI](https://circleci.com/gh/chapsuk/worker.svg?style=svg)](https://circleci.com/gh/chapsuk/worker)
-[![Go Report Card](https://goreportcard.com/badge/github.com/chapsuk/worker)](https://goreportcard.com/report/github.com/chapsuk/worker)
+[![Coverage Status](https://coveralls.io/repos/github/chapsuk/worker/badge.svg?branch=master)](https://coveralls.io/github/chapsuk/worker?branch=master)
+[![Go Report Card](https://goreportcard.com/badge/github.com/chapsuk/worker?)](https://goreportcard.com/report/github.com/chapsuk/worker)
 
 Package worker adding the abstraction layer around background jobs,
 allows make a job periodically, observe execution time and to control concurrent execution.
