@@ -21,7 +21,10 @@ func TestMetricsObserver(t *testing.T) {
 
 		Convey("When run workers with Observ func, job duration should be great 50ms", func() {
 			for i := 0; i < 5; i++ {
-				worker.New(job).WithMetrics(obs).Run(context.Background())
+				worker.
+					New(job).
+					SetObserver(obs).
+					Run(context.Background())
 			}
 		})
 	})

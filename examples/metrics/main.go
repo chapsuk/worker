@@ -53,19 +53,19 @@ func main() {
 	wk.Add(
 		worker.New(job1).
 			ByTicker(time.Second).
-			WithMetrics(metric.WithLabelValues("job1").Observe),
+			SetObserver(metric.WithLabelValues("job1").Observe),
 
 		worker.New(job2).
 			ByTicker(time.Second).
-			WithMetrics(metric.WithLabelValues("job2").Observe),
+			SetObserver(metric.WithLabelValues("job2").Observe),
 
 		worker.New(job3).
 			ByTicker(time.Second).
-			WithMetrics(metric.WithLabelValues("job3").Observe),
+			SetObserver(metric.WithLabelValues("job3").Observe),
 
 		worker.New(job4).
 			ByTicker(time.Second).
-			WithMetrics(metric.WithLabelValues("job4").Observe),
+			SetObserver(metric.WithLabelValues("job4").Observe),
 	)
 
 	log.Print("starting workers...")

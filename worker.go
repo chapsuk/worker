@@ -8,16 +8,16 @@ import (
 // Job is target background job
 type Job func(context.Context)
 
-// MetricObserveFunc given execution job time duration seconds
-type MetricObserveFunc func(float64)
+// ObserveFunc given execution job time duration seconds
+type ObserveFunc func(float64)
 
 // Worker is builder for job with optional schedule and exclusive control
 type Worker struct {
-	job             Job
-	schedule        ScheduleFunc
-	locker          LockFunc
-	metricsObserver MetricObserveFunc
-	immediately     bool
+	job         Job
+	schedule    ScheduleFunc
+	locker      LockFunc
+	observe     ObserveFunc
+	immediately bool
 }
 
 // New returns new worker with target job
@@ -25,12 +25,6 @@ func New(job Job) *Worker {
 	return &Worker{
 		job: job,
 	}
-}
-
-// SetImmediately set execute job on Run setting
-func (w *Worker) SetImmediately(executeOnRun bool) *Worker {
-	w.immediately = executeOnRun
-	return w
 }
 
 // BySchedule set schedule wrapper func for job
@@ -75,9 +69,15 @@ func (w *Worker) WithBsmRedisLock(opts BsmRedisLockOptions) *Worker {
 	return w
 }
 
-// WithMetrics set job duration observer
-func (w *Worker) WithMetrics(observe MetricObserveFunc) *Worker {
-	w.metricsObserver = observe
+// SetImmediately set execute job on Run setting
+func (w *Worker) SetImmediately(executeOnRun bool) *Worker {
+	w.immediately = executeOnRun
+	return w
+}
+
+// SetObserver set job duration observer
+func (w *Worker) SetObserver(observe ObserveFunc) *Worker {
+	w.observe = observe
 	return w
 }
 
@@ -85,11 +85,11 @@ func (w *Worker) WithMetrics(observe MetricObserveFunc) *Worker {
 func (w *Worker) Run(ctx context.Context) {
 	job := w.job
 
-	if w.metricsObserver != nil {
+	if w.observe != nil {
 		job = func(ctx context.Context) {
 			start := time.Now()
 			w.job(ctx)
-			w.metricsObserver(time.Since(start).Seconds())
+			w.observe(time.Since(start).Seconds())
 		}
 	}
 

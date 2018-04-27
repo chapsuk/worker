@@ -76,8 +76,22 @@ func TestRedisLock(t *testing.T) {
 					})
 				})
 			})
-		})
 
+			Convey("Run job with lock", func() {
+				wrk := worker.New(job).WithRedisLock(opts)
+
+				ctx, cancel := context.WithCancel(context.Background())
+				go wrk.Run(ctx)
+				checkResulChannel(start)
+
+				Convey("Release lock should logging error if redis shutdown", func() {
+					redis.Close()
+					cancel()
+					checkResulChannel(stop)
+					So(lgr.errw, ShouldHaveLength, 1)
+				})
+			})
+		})
 	})
 
 	Convey("Given not accessible redis client", t, func() {
@@ -177,7 +191,7 @@ func TestBsmRedisLock(t *testing.T) {
 						case <-start:
 							So(atomic.LoadInt32(&i), ShouldEqual, 3)
 						case <-time.Tick(2 * time.Second):
-							So("tun third job to slow", ShouldBeFalse)
+							So("run third job to slow", ShouldBeFalse)
 						}
 
 						Convey("Cancel context should stop all runeed jobs", func() {
