@@ -184,7 +184,7 @@ func TestBsmRedisLock(t *testing.T) {
 					}
 
 					Convey("After lock expired new job should start", func() {
-						time.Sleep(time.Second)
+						time.Sleep(2 * time.Second)
 						go wrk.WithBsmRedisLock(opts.NewWith(
 							opts.LockKey, opts.LockTTL, 0, time.Second,
 						)).Run(ctx)
