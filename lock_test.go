@@ -60,7 +60,7 @@ func TestRedisLock(t *testing.T) {
 					So(lgr.warns(), ShouldEqual, 1)
 
 					Convey("After lock expired new job should start", func() {
-						time.Sleep(time.Second)
+						time.Sleep(2 * time.Second)
 						go wrk.Run(ctx)
 						checkResultChannel(start)
 						So(atomic.LoadInt32(&i), ShouldEqual, 2)
@@ -253,7 +253,7 @@ func TestBsmRedisLock(t *testing.T) {
 					So(lgr.warns(), ShouldEqual, 1)
 
 					Convey("After lock expired new job should start", func() {
-						time.Sleep(time.Second)
+						time.Sleep(2 * time.Second)
 						go wrk.Run(ctx)
 
 						select {
