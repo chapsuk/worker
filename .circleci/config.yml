@@ -7,5 +7,7 @@ jobs:
     working_directory: /go/src/github.com/chapsuk/worker
     steps:
       - checkout
+      - run: go get golang.org/x/tools/cmd/cover
+      - run: go get github.com/mattn/goveralls
       - run: go get -v -t -d ./...
       - run: go test -v -race ./...
