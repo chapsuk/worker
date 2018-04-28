@@ -141,31 +141,33 @@ func TestByTicker(t *testing.T) {
 		})
 	})
 
-	Convey("Given job who send to result channel execution time", t, func() {
-		res := make(chan time.Time)
+	Convey("Given job who send to channels start/stop signals, blocking with context", t, func() {
+		var (
+			start    = make(chan struct{})
+			stop     = make(chan struct{})
+			complete = make(chan struct{})
+		)
+
 		job := func(ctx context.Context) {
-			res <- time.Now()
+			start <- struct{}{}
+			<-ctx.Done()
+			stop <- struct{}{}
 		}
 
 		Convey("When run with micro tiimeout ticker", func() {
 			wrk := worker.New(job).ByTicker(time.Millisecond)
 
 			ctx, cancel := context.WithCancel(context.Background())
-			go wrk.Run(ctx)
+			go func() {
+				wrk.Run(ctx)
+				complete <- struct{}{}
+			}()
+			checkResultChannel(start)
 
 			Convey("Cancel context should stop job on next run", func() {
-				time.Sleep(time.Second)
 				cancel()
-				<-res
-
-				t := time.NewTimer(2 * time.Second)
-				defer t.Stop()
-				select {
-				case <-res:
-					So("gotten job result after stop", ShouldBeFalse)
-				case <-t.C:
-					So(true, ShouldBeTrue)
-				}
+				checkResultChannel(stop)
+				checkResultChannel(complete)
 			})
 		})
 	})
