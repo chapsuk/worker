@@ -4,6 +4,7 @@
 [![Build Status](https://travis-ci.org/chapsuk/worker.svg?branch=master)](https://travis-ci.org/chapsuk/worker)
 [![Coverage Status](https://coveralls.io/repos/github/chapsuk/worker/badge.svg?branch=master)](https://coveralls.io/github/chapsuk/worker?branch=master)
 [![Go Report Card](https://goreportcard.com/badge/github.com/chapsuk/worker?)](https://goreportcard.com/report/github.com/chapsuk/worker)
+[![codebeat badge](https://codebeat.co/badges/3ddfb9a1-9fb9-49b2-ac72-b259822576aa)](https://codebeat.co/projects/github-com-chapsuk-worker-master)
 
 Package worker adding the abstraction layer around background jobs,
 allows make a job periodically, observe execution time and to control concurrent execution.
