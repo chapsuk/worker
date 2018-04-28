@@ -154,7 +154,7 @@ func TestByTicker(t *testing.T) {
 			stop <- struct{}{}
 		}
 
-		Convey("When run with micro tiimeout ticker", func() {
+		Convey("When run with ticker", func() {
 			wrk := worker.New(job).ByTicker(time.Millisecond)
 
 			ctx, cancel := context.WithCancel(context.Background())
@@ -164,9 +164,42 @@ func TestByTicker(t *testing.T) {
 			}()
 			checkResultChannel(start)
 
-			Convey("Cancel context should stop job on next run", func() {
+			Convey("Cancel context should stop job on next run (context check prioriity)", func() {
 				cancel()
 				checkResultChannel(stop)
+				checkResultChannel(complete)
+			})
+		})
+	})
+
+	Convey("Given job which send stop start events to channels", t, func() {
+		var (
+			start    = make(chan struct{})
+			stop     = make(chan struct{})
+			complete = make(chan struct{})
+		)
+
+		job := func(ctx context.Context) {
+			start <- struct{}{}
+			stop <- struct{}{}
+		}
+
+		Convey("When start job with ticker", func() {
+			wrk := worker.New(job).ByTicker(time.Minute)
+			ctx, cancel := context.WithCancel(context.Background())
+
+			go func() {
+				wrk.Run(ctx)
+				complete <- struct{}{}
+			}()
+
+			Convey("Job should execute, cancel context should stop worker", func() {
+				checkResultChannel(start)
+				checkResultChannel(stop)
+
+				// skip context check priiority
+				time.Tick(time.Millisecond)
+				cancel()
 				checkResultChannel(complete)
 			})
 		})
