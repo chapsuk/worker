@@ -1,6 +1,6 @@
 # Worker
 
-[![GoDoc](http://godoc.org/github.com/chapsuk/worker?status.png)](http://godoc.org/github.com/chapsuk/worker) 
+[![GoDoc](http://godoc.org/github.com/chapsuk/worker?status.png)](http://godoc.org/github.com/chapsuk/worker)
 [![Build Status](https://travis-ci.org/chapsuk/worker.svg?branch=master)](https://travis-ci.org/chapsuk/worker)
 [![Coverage Status](https://coveralls.io/repos/github/chapsuk/worker/badge.svg?branch=master)](https://coveralls.io/github/chapsuk/worker?branch=master)
 [![Go Report Card](https://goreportcard.com/badge/github.com/chapsuk/worker?)](https://goreportcard.com/report/github.com/chapsuk/worker)
@@ -26,11 +26,11 @@ wg.Add(
     worker.
         New(func(context.Context) {}).
         ByTicker(time.Second),
-    
+
     worker.
         New(func(context.Context) {}).
         ByTimer(time.Second),
-    
+
     worker.
         New(func(context.Context) {}).
         ByCronSpec("@every 1s"),

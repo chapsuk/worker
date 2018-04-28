@@ -202,7 +202,7 @@ func TestByTicker(t *testing.T) {
 				So(readFromChannelWithTimeout(stop), ShouldBeTrue)
 
 				// skip context check priiority
-				time.Tick(100 * time.Millisecond)
+				<-time.Tick(100 * time.Millisecond)
 				cancel()
 				So(readFromChannelWithTimeout(complete), ShouldBeTrue)
 			})
