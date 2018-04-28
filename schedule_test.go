@@ -184,8 +184,12 @@ func TestByTicker(t *testing.T) {
 			stop <- struct{}{}
 		}
 
-		Convey("When start job with ticker", func() {
-			wrk := worker.New(job).ByTicker(time.Minute)
+		Convey("When start job with ticker, set immediiatly for run on start", func() {
+			wrk := worker.
+				New(job).
+				ByTicker(time.Minute).
+				SetImmediately(true)
+
 			ctx, cancel := context.WithCancel(context.Background())
 
 			go func() {
