@@ -52,7 +52,7 @@ func TestRedisLock(t *testing.T) {
 
 				ctx, cancel := context.WithCancel(context.Background())
 				go wrk.Run(ctx)
-				checkResultChannel(start)
+				So(readFromChannelWithTimeout(start), ShouldBeTrue)
 
 				Convey("Repeat run should not be executed", func() {
 					wrk.Run(ctx)
@@ -62,14 +62,14 @@ func TestRedisLock(t *testing.T) {
 					Convey("After lock expired new job should start", func() {
 						time.Sleep(2 * time.Second)
 						go wrk.Run(ctx)
-						checkResultChannel(start)
+						So(readFromChannelWithTimeout(start), ShouldBeTrue)
 						So(atomic.LoadInt32(&i), ShouldEqual, 2)
 						So(lgr.warns(), ShouldEqual, 1)
 
 						Convey("Cancel context should stop all runeed jobs", func() {
 							cancel()
-							checkResultChannel(stop)
-							checkResultChannel(stop)
+							So(readFromChannelWithTimeout(stop), ShouldBeTrue)
+							So(readFromChannelWithTimeout(stop), ShouldBeTrue)
 
 							So(atomic.LoadInt32(&i), ShouldEqual, 4)
 							So(lgr.warns(), ShouldEqual, 1)
@@ -83,12 +83,12 @@ func TestRedisLock(t *testing.T) {
 
 				ctx, cancel := context.WithCancel(context.Background())
 				go wrk.Run(ctx)
-				checkResultChannel(start)
+				So(readFromChannelWithTimeout(start), ShouldBeTrue)
 
 				Convey("Release lock should logging error if redis shutdown", func() {
 					redis.Close()
 					cancel()
-					checkResultChannel(stop)
+					So(readFromChannelWithTimeout(stop), ShouldBeTrue)
 					<-time.Tick(time.Second)
 					So(lgr.errs(), ShouldEqual, 1)
 				})
@@ -198,9 +198,9 @@ func TestBsmRedisLock(t *testing.T) {
 
 						Convey("Cancel context should stop all runeed jobs", func() {
 							cancel()
-							checkResultChannel(stop)
-							checkResultChannel(stop)
-							checkResultChannel(stop)
+							So(readFromChannelWithTimeout(stop), ShouldBeTrue)
+							So(readFromChannelWithTimeout(stop), ShouldBeTrue)
+							So(readFromChannelWithTimeout(stop), ShouldBeTrue)
 							So(atomic.LoadInt32(&i), ShouldEqual, 6)
 						})
 					})
@@ -266,8 +266,8 @@ func TestBsmRedisLock(t *testing.T) {
 
 						Convey("Cancel context should stop all runeed jobs", func() {
 							cancel()
-							checkResultChannel(stop)
-							checkResultChannel(stop)
+							So(readFromChannelWithTimeout(stop), ShouldBeTrue)
+							So(readFromChannelWithTimeout(stop), ShouldBeTrue)
 							So(atomic.LoadInt32(&i), ShouldEqual, 4)
 							// first job lock expired, logger should get warn
 							<-time.Tick(time.Second)
@@ -329,7 +329,7 @@ func TestWithLock(t *testing.T) {
 
 			ctx, cancel := context.WithCancel(context.Background())
 			go wrk.Run(ctx)
-			checkResultChannel(start)
+			So(readFromChannelWithTimeout(start), ShouldBeTrue)
 
 			Convey("repeat run should not be execute job", func() {
 				wrk.Run(ctx)
@@ -338,7 +338,7 @@ func TestWithLock(t *testing.T) {
 
 			Convey("cancel context should complete job", func() {
 				cancel()
-				checkResultChannel(stop)
+				So(readFromChannelWithTimeout(stop), ShouldBeTrue)
 				So(atomic.LoadInt32(&i), ShouldEqual, 2)
 			})
 		})

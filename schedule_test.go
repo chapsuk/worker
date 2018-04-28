@@ -35,7 +35,7 @@ func TestByCustomSchedule(t *testing.T) {
 				Run(context.Background())
 
 			Convey("Job should be executed 5 times", func() {
-				checkResultChannel(res)
+				So(readFromChannelWithTimeout(res), ShouldBeTrue)
 				So(atomic.LoadInt32(&i), ShouldEqual, 0)
 			})
 		})
@@ -162,12 +162,12 @@ func TestByTicker(t *testing.T) {
 				wrk.Run(ctx)
 				complete <- struct{}{}
 			}()
-			checkResultChannel(start)
+			So(readFromChannelWithTimeout(start), ShouldBeTrue)
 
 			Convey("Cancel context should stop job on next run (context check prioriity)", func() {
 				cancel()
-				checkResultChannel(stop)
-				checkResultChannel(complete)
+				So(readFromChannelWithTimeout(stop), ShouldBeTrue)
+				So(readFromChannelWithTimeout(complete), ShouldBeTrue)
 			})
 		})
 	})
@@ -194,13 +194,13 @@ func TestByTicker(t *testing.T) {
 			}()
 
 			Convey("Job should execute, cancel context should stop worker", func() {
-				checkResultChannel(start)
-				checkResultChannel(stop)
+				So(readFromChannelWithTimeout(start), ShouldBeTrue)
+				So(readFromChannelWithTimeout(stop), ShouldBeTrue)
 
 				// skip context check priiority
-				time.Tick(time.Millisecond)
+				time.Tick(100 * time.Millisecond)
 				cancel()
-				checkResultChannel(complete)
+				So(readFromChannelWithTimeout(complete), ShouldBeTrue)
 			})
 		})
 	})

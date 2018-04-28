@@ -72,7 +72,7 @@ func TestImmediately(t *testing.T) {
 
 			Convey("Job should executed once when context canceled", func() {
 				cancel()
-				checkResultChannel(res)
+				So(readFromChannelWithTimeout(res), ShouldBeTrue)
 				So(atomic.LoadInt32(&i), ShouldEqual, 1)
 			})
 		})
@@ -83,7 +83,7 @@ func TestImmediately(t *testing.T) {
 
 			Convey("Job should executed once", func() {
 				cancel()
-				checkResultChannel(res)
+				So(readFromChannelWithTimeout(res), ShouldBeTrue)
 				So(atomic.LoadInt32(&i), ShouldEqual, 1)
 			})
 		})
