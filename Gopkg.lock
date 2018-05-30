@@ -22,8 +22,8 @@
 [[projects]]
   name = "github.com/chapsuk/wait"
   packages = ["."]
-  revision = "a35d477d95204e4e0da1f970c958449ac8e685e4"
-  version = "v0.2.1"
+  revision = "2dc40db0485b845f0059e317ea14746db75184d5"
+  version = "v0.3"
 
 [[projects]]
   name = "github.com/go-redis/redis"
@@ -154,6 +154,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "5b6d0a896fa2ae5c4f023aad7655e31aacdd4dda6e58400030266cc453ef0878"
+  inputs-digest = "9aa0db503537d3a629bb8e0e39b68ccc19a4daf75f9bd820877b635decba1391"
   solver-name = "gps-cdcl"
   solver-version = 1
