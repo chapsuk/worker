@@ -97,6 +97,12 @@ func WithRedisLock(opts RedisLockOptions) LockFunc {
 				}
 			}()
 
+			var cancel context.CancelFunc
+			if opts.LockTTL > 0 {
+				ctx, cancel = context.WithTimeout(ctx, opts.LockTTL)
+				defer cancel()
+			}
+
 			j(ctx)
 		}
 	}
@@ -150,6 +156,12 @@ func WithBsmRedisLock(opts BsmRedisLockOptions) LockFunc {
 						"lock_key", opts.LockKey, "error", err)
 				}
 			}()
+
+			var cancel context.CancelFunc
+			if opts.LockTTL > 0 {
+				ctx, cancel = context.WithTimeout(ctx, opts.LockTTL)
+				defer cancel()
+			}
 
 			j(ctx)
 		}

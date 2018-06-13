@@ -52,28 +52,35 @@ func TestRedisLock(t *testing.T) {
 
 				ctx, cancel := context.WithCancel(context.Background())
 				go wrk.Run(ctx)
-				So(readFromChannelWithTimeout(start), ShouldBeTrue)
 
-				Convey("Repeat run should not be executed", func() {
-					wrk.Run(ctx)
-					So(atomic.LoadInt32(&i), ShouldEqual, 1)
-					So(lgr.warns(), ShouldEqual, 1)
+				select {
+				case <-start:
+				case <-time.Tick(2 * time.Second):
+					So("job not runned", ShouldBeNil)
+				}
 
-					Convey("After lock expired new job should start", func() {
-						time.Sleep(2 * time.Second)
-						go wrk.Run(ctx)
-						So(readFromChannelWithTimeout(start), ShouldBeTrue)
-						So(atomic.LoadInt32(&i), ShouldEqual, 2)
-						So(lgr.warns(), ShouldEqual, 1)
+				Convey("After lock expired new job should start", func() {
+					select {
+					case <-stop:
+					case <-time.Tick(2 * time.Second):
+						So("job not stopped", ShouldBeNil)
+					}
 
-						Convey("Cancel context should stop all runeed jobs", func() {
-							cancel()
-							So(readFromChannelWithTimeout(stop), ShouldBeTrue)
-							So(readFromChannelWithTimeout(stop), ShouldBeTrue)
+					go wrk.Run(ctx)
 
-							So(atomic.LoadInt32(&i), ShouldEqual, 4)
-							So(lgr.warns(), ShouldEqual, 1)
-						})
+					select {
+					case <-start:
+					case <-time.Tick(2 * time.Second):
+						So("job not runned", ShouldBeNil)
+					}
+
+					So(atomic.LoadInt32(&i), ShouldEqual, 3)
+
+					Convey("Cancel context should stop all runeed jobs", func() {
+						cancel()
+						So(readFromChannelWithTimeout(stop), ShouldBeTrue)
+
+						So(atomic.LoadInt32(&i), ShouldEqual, 4)
 					})
 				})
 			})
@@ -173,36 +180,29 @@ func TestBsmRedisLock(t *testing.T) {
 					So("job not started", ShouldBeFalse)
 				}
 
-				Convey("Repeat run should be executed by retries", func() {
-					go wrk.Run(ctx)
+				Convey("After lock expired active job should stopped, new job can be runned", func() {
+
+					select {
+					case <-stop:
+					case <-time.Tick(2 * time.Second):
+						So("job not stopped", ShouldBeFalse)
+					}
+
+					go wrk.WithBsmRedisLock(opts.NewWith(
+						opts.LockKey, opts.LockTTL, 0, time.Second,
+					)).Run(ctx)
 
 					select {
 					case <-start:
-						So(atomic.LoadInt32(&i), ShouldEqual, 2)
+						So(atomic.LoadInt32(&i), ShouldEqual, 3)
 					case <-time.Tick(2 * time.Second):
 						So("job not started", ShouldBeFalse)
 					}
 
-					Convey("After lock expired new job should start", func() {
-						time.Sleep(2 * time.Second)
-						go wrk.WithBsmRedisLock(opts.NewWith(
-							opts.LockKey, opts.LockTTL, 0, time.Second,
-						)).Run(ctx)
-
-						select {
-						case <-start:
-							So(atomic.LoadInt32(&i), ShouldEqual, 3)
-						case <-time.Tick(2 * time.Second):
-							So("job not started", ShouldBeFalse)
-						}
-
-						Convey("Cancel context should stop all runeed jobs", func() {
-							cancel()
-							So(readFromChannelWithTimeout(stop), ShouldBeTrue)
-							So(readFromChannelWithTimeout(stop), ShouldBeTrue)
-							So(readFromChannelWithTimeout(stop), ShouldBeTrue)
-							So(atomic.LoadInt32(&i), ShouldEqual, 6)
-						})
+					Convey("Cancel context should stop last runeed jobs", func() {
+						cancel()
+						<-stop
+						So(atomic.LoadInt32(&i), ShouldEqual, 4)
 					})
 				})
 			})
@@ -240,6 +240,7 @@ func TestBsmRedisLock(t *testing.T) {
 
 				ctx, cancel := context.WithCancel(context.Background())
 				go wrk.Run(ctx)
+
 				select {
 				case <-start:
 					So(atomic.LoadInt32(&i), ShouldEqual, 1)
@@ -247,32 +248,26 @@ func TestBsmRedisLock(t *testing.T) {
 					So("run worker, to slow", ShouldBeFalse)
 				}
 
-				Convey("Repeat run should not execute by retries", func() {
-					wrk.Run(ctx)
-					So(atomic.LoadInt32(&i), ShouldEqual, 1)
-					So(lgr.warns(), ShouldEqual, 1)
+				Convey("After lock expired new job should start", func() {
+					select {
+					case <-stop:
+					case <-time.Tick(2 * time.Second):
+						So("job not stopped", ShouldBeNil)
+					}
 
-					Convey("After lock expired new job should start", func() {
-						time.Sleep(2 * time.Second)
-						go wrk.Run(ctx)
+					go wrk.Run(ctx)
 
-						select {
-						case <-start:
-							So(atomic.LoadInt32(&i), ShouldEqual, 2)
-							So(lgr.warns(), ShouldEqual, 1)
-						case <-time.Tick(3 * time.Second):
-							So("run worker, to slow", ShouldBeFalse)
-						}
+					select {
+					case <-start:
+						So(atomic.LoadInt32(&i), ShouldEqual, 3)
+					case <-time.Tick(3 * time.Second):
+						So("run worker, to slow", ShouldBeFalse)
+					}
 
-						Convey("Cancel context should stop all runeed jobs", func() {
-							cancel()
-							So(readFromChannelWithTimeout(stop), ShouldBeTrue)
-							So(readFromChannelWithTimeout(stop), ShouldBeTrue)
-							So(atomic.LoadInt32(&i), ShouldEqual, 4)
-							// first job lock expired, logger should get warn
-							<-time.Tick(time.Second)
-							So(lgr.warns(), ShouldEqual, 2)
-						})
+					Convey("Cancel context should stop runeed job", func() {
+						cancel()
+						So(readFromChannelWithTimeout(stop), ShouldBeTrue)
+						So(atomic.LoadInt32(&i), ShouldEqual, 4)
 					})
 				})
 			})
@@ -371,6 +366,26 @@ func TestRedisOptions(t *testing.T) {
 				So(dopts.RedisCLI, ShouldPointTo, redis)
 			})
 		})
+
+		Convey("When lock expired context should be canceled", func() {
+			w := worker.New(func(ctx context.Context) {
+				<-ctx.Done()
+			}).WithRedisLock(sopts)
+
+			ch := make(chan struct{})
+			go func() {
+				w.Run(context.TODO())
+				ch <- struct{}{}
+			}()
+
+			select {
+			case <-time.Tick(2 * time.Second):
+				So("timeout", ShouldBeNil)
+			case <-ch:
+				So(true, ShouldBeTrue)
+			}
+
+		})
 	})
 }
 
@@ -407,6 +422,26 @@ func TestBsmRedisOptions(t *testing.T) {
 				So(dopts.RetryDelay, ShouldEqual, 3*time.Second)
 				So(dopts.RedisCLI, ShouldPointTo, redis)
 			})
+		})
+
+		Convey("When lock expired context should be canceled", func() {
+			w := worker.New(func(ctx context.Context) {
+				<-ctx.Done()
+			}).WithBsmRedisLock(sopts)
+
+			ch := make(chan struct{})
+			go func() {
+				w.Run(context.TODO())
+				ch <- struct{}{}
+			}()
+
+			select {
+			case <-time.Tick(2 * time.Second):
+				So("timeout", ShouldBeNil)
+			case <-ch:
+				So(true, ShouldBeTrue)
+			}
+
 		})
 	})
 }
