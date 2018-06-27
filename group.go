@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/chapsuk/wait"
+	"go.uber.org/dig"
 )
 
 // Group of workers controlling background jobs execution
@@ -53,4 +54,17 @@ func (g *Group) Stop() {
 	g.stop()
 	g.wg.Wait()
 	g.mu.Unlock()
+}
+
+// DigGroupParams define workers list for inject by DI
+type DigGroupParams struct {
+	dig.In
+	Workers []*Worker `group:"workers"`
+}
+
+// NewDigGroup returns group with workers from DI container with group:"worker" tag
+func NewDigGroup(p DigGroupParams) *Group {
+	g := NewGroup()
+	g.Add(p.Workers...)
+	return g
 }

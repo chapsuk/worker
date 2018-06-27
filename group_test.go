@@ -8,6 +8,7 @@ import (
 
 	"github.com/chapsuk/worker"
 	. "github.com/smartystreets/goconvey/convey"
+	"go.uber.org/dig"
 )
 
 func TestGroup(t *testing.T) {
@@ -65,6 +66,66 @@ func TestGroup(t *testing.T) {
 							So("blocking", ShouldEqual, "non-blocking")
 						}
 					})
+				})
+			})
+		})
+	})
+}
+
+type DigWorkerResult struct {
+	dig.Out
+	TestWorker *worker.Worker `group:"workers"`
+}
+
+var (
+	digCounter    int32
+	digResultChan chan struct{}
+)
+
+func firstDigWorker() DigWorkerResult {
+	return DigWorkerResult{
+		TestWorker: worker.New(createFakeJob(&digCounter, digResultChan)),
+	}
+}
+
+func secondDigWorker() DigWorkerResult {
+	return DigWorkerResult{
+		TestWorker: worker.New(createFakeJob(&digCounter, digResultChan)),
+	}
+}
+
+func TestDigGroup(t *testing.T) {
+	Convey("Given dig DI Container, test worker provided", t, func() {
+		dic := dig.New()
+		digCounter = 0
+		digResultChan = make(chan struct{})
+
+		Convey("When provide NewDigGroup and first test dig worker, errors should be nil", func() {
+			err := dic.Provide(firstDigWorker)
+			So(err, ShouldBeNil)
+			err = dic.Provide(worker.NewDigGroup)
+			So(err, ShouldBeNil)
+
+			Convey("Invoke workers group should return group instance", func() {
+				err = dic.Invoke(func(wg *worker.Group) {
+					So(wg, ShouldNotBeNil)
+				})
+				So(err, ShouldBeNil)
+			})
+
+			Convey("Provide one more group worker, should not return error", func() {
+				err := dic.Provide(firstDigWorker)
+				So(err, ShouldBeNil)
+
+				Convey("Run worker group should start both workers", func() {
+					err = dic.Invoke(func(wg *worker.Group) {
+						So(wg, ShouldNotBeNil)
+						wg.Run()
+						So(readFromChannelWithTimeout(digResultChan), ShouldBeTrue)
+						So(readFromChannelWithTimeout(digResultChan), ShouldBeTrue)
+						So(atomic.LoadInt32(&digCounter), ShouldEqual, 2)
+					})
+					So(err, ShouldBeNil)
 				})
 			})
 		})
