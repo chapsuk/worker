@@ -65,6 +65,8 @@ type DigGroupParams struct {
 // NewDigGroup returns group with workers from DI container with group:"worker" tag
 func NewDigGroup(p DigGroupParams) *Group {
 	g := NewGroup()
-	g.Add(p.Workers...)
+	if p.Workers != nil {
+		g.Add(p.Workers...)
+	}
 	return g
 }
