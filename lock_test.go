@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/chapsuk/wait"
 	"github.com/chapsuk/worker"
 	"github.com/go-redis/redis"
 	. "github.com/smartystreets/goconvey/convey"
@@ -40,12 +41,50 @@ func TestRedisLock(t *testing.T) {
 			)
 
 			job := func(ctx context.Context) {
-				start <- struct{}{}
 				atomic.AddInt32(&i, 1)
+				start <- struct{}{}
 				<-ctx.Done()
 				atomic.AddInt32(&i, 1)
 				stop <- struct{}{}
 			}
+
+			Convey("When run two jobs with same lock only one should executed", func() {
+				opts.LockKey = fmt.Sprintf("redis_lock_double_test%d", time.Now().Nanosecond())
+
+				wrk1 := worker.New(job).WithRedisLock(opts)
+				wrk2 := worker.New(job).WithRedisLock(opts)
+
+				ctx, cancel := context.WithCancel(context.Background())
+
+				wg := wait.Group{}
+				wg.AddWithContext(ctx, wrk1.Run)
+				wg.AddWithContext(ctx, wrk2.Run)
+
+				// wait second job get lock failed
+				<-time.Tick(300 * time.Millisecond)
+				select {
+				case <-start:
+					So(atomic.LoadInt32(&i), ShouldEqual, 1)
+				case <-time.Tick(2 * time.Second):
+					So("no one job started", ShouldBeFalse)
+				}
+
+				cancel()
+
+				select {
+				case <-start:
+					So("second job started", ShouldBeFalse)
+				default:
+					select {
+					case <-stop:
+						So(atomic.LoadInt32(&i), ShouldEqual, 2)
+					case <-time.Tick(2 * time.Second):
+						So("first job not stopped", ShouldBeFalse)
+					}
+				}
+				wg.Wait()
+				So(atomic.LoadInt32(&i), ShouldEqual, 2)
+			})
 
 			Convey("When run job with redis lock", func() {
 				wrk := worker.New(job).WithRedisLock(opts)
@@ -166,6 +205,46 @@ func TestBsmRedisLock(t *testing.T) {
 				stop <- struct{}{}
 			}
 
+			Convey("When run two jobs only one should executed", func() {
+				opts.LockTTL = 5 * time.Second
+				opts.RetryDelay = 100 * time.Millisecond
+				opts.LockKey = fmt.Sprintf("bsm_redis_lock_double_test%d", time.Now().Nanosecond())
+
+				wrk1 := worker.New(job).WithBsmRedisLock(opts)
+				wrk2 := worker.New(job).WithBsmRedisLock(opts)
+
+				ctx, cancel := context.WithCancel(context.Background())
+
+				wg := wait.Group{}
+				wg.AddWithContext(ctx, wrk1.Run)
+				wg.AddWithContext(ctx, wrk2.Run)
+
+				// wait second job failed get lock retries
+				<-time.Tick(300 * time.Millisecond)
+				select {
+				case <-start:
+					So(atomic.LoadInt32(&i), ShouldEqual, 1)
+				case <-time.Tick(2 * time.Second):
+					So("no one job started", ShouldBeFalse)
+				}
+
+				cancel()
+
+				select {
+				case <-start:
+					So("second job started", ShouldBeFalse)
+				default:
+					select {
+					case <-stop:
+						So(atomic.LoadInt32(&i), ShouldEqual, 2)
+					case <-time.Tick(2 * time.Second):
+						So("first job not stopped", ShouldBeFalse)
+					}
+				}
+				wg.Wait()
+				So(atomic.LoadInt32(&i), ShouldEqual, 2)
+			})
+
 			Convey("When run job with bsm redis lock", func() {
 				wrk := worker.New(job).WithBsmRedisLock(opts)
 
@@ -180,7 +259,7 @@ func TestBsmRedisLock(t *testing.T) {
 					So("job not started", ShouldBeFalse)
 				}
 
-				Convey("After lock expired active job should stopped, new job can be runned", func() {
+				Convey("After lock expired active job should stopped, new job can be runned and stopped by context", func() {
 
 					select {
 					case <-stop:
@@ -195,15 +274,13 @@ func TestBsmRedisLock(t *testing.T) {
 					select {
 					case <-start:
 						So(atomic.LoadInt32(&i), ShouldEqual, 3)
-					case <-time.Tick(2 * time.Second):
+					case <-time.Tick(5 * time.Second):
 						So("job not started", ShouldBeFalse)
 					}
 
-					Convey("Cancel context should stop last runeed jobs", func() {
-						cancel()
-						<-stop
-						So(atomic.LoadInt32(&i), ShouldEqual, 4)
-					})
+					cancel()
+					<-stop
+					So(atomic.LoadInt32(&i), ShouldEqual, 4)
 				})
 			})
 		})
@@ -245,12 +322,13 @@ func TestBsmRedisLock(t *testing.T) {
 				case <-start:
 					So(atomic.LoadInt32(&i), ShouldEqual, 1)
 				case <-time.Tick(3 * time.Second):
-					So("run worker, to slow", ShouldBeFalse)
+					So("run worker, too slow", ShouldBeFalse)
 				}
 
-				Convey("After lock expired new job should start", func() {
+				Convey("After lock expired new job should start, cancel context should stop job", func() {
 					select {
 					case <-stop:
+						So(atomic.LoadInt32(&i), ShouldEqual, 2)
 					case <-time.Tick(2 * time.Second):
 						So("job not stopped", ShouldBeNil)
 					}
@@ -260,15 +338,13 @@ func TestBsmRedisLock(t *testing.T) {
 					select {
 					case <-start:
 						So(atomic.LoadInt32(&i), ShouldEqual, 3)
-					case <-time.Tick(3 * time.Second):
-						So("run worker, to slow", ShouldBeFalse)
+					case <-time.Tick(5 * time.Second):
+						So("run worker, too slow", ShouldBeFalse)
 					}
 
-					Convey("Cancel context should stop runeed job", func() {
-						cancel()
-						So(readFromChannelWithTimeout(stop), ShouldBeTrue)
-						So(atomic.LoadInt32(&i), ShouldEqual, 4)
-					})
+					cancel()
+					So(readFromChannelWithTimeout(stop), ShouldBeTrue)
+					So(atomic.LoadInt32(&i), ShouldEqual, 4)
 				})
 			})
 		})
