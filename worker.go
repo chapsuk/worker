@@ -57,18 +57,6 @@ func (w *Worker) WithLock(l Locker) *Worker {
 	return w
 }
 
-// WithRedisLock set job lock wrapper using redis lock
-func (w *Worker) WithRedisLock(opts RedisLockOptions) *Worker {
-	w.locker = WithRedisLock(opts)
-	return w
-}
-
-// WithBsmRedisLock set job lock wrapper using bsm/redis-lock pkg
-func (w *Worker) WithBsmRedisLock(opts BsmRedisLockOptions) *Worker {
-	w.locker = WithBsmRedisLock(opts)
-	return w
-}
-
 // SetImmediately set execute job on Run setting
 func (w *Worker) SetImmediately(executeOnRun bool) *Worker {
 	w.immediately = executeOnRun

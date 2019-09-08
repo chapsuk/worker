@@ -15,7 +15,7 @@ wait until all runned workers finished when we need stop all jobs.
 ## Features
 
 * Scheduling, use one from existing `worker.By*` schedule functions. Supporting cron schedule spec format by [robfig/cron](https://github.com/robfig/cron) parser.
-* Control concurrent execution around multiple instances by `worker.With*` lock functions. Supporting redis locks by [go-redis/redis](github.com/go-redis/redis) and [bsm/redis-lock](https://github.com/bsm/redis-lock) pkgs.
+* Control concurrent execution around multiple instances by `worker.WithLock`. See existing lockers
 * Observe a job execution time duration with `worker.SetObserever`. Friendly for [prometheus/client_golang](https://github.com/prometheus/client_golang/) package.
 * Graceful stop, wait until all running jobs was completed.
 
@@ -39,4 +39,17 @@ wg.Add(
 wg.Run()
 ```
 
-See more examples [here](/examples)
+## Lockers
+
+You can use redis locks for controll exclusive job execution:
+
+```go
+l := locker.NewRedis(radix.Client, "job_lock_name", locker.RedisLockTTL(time.Minute))
+
+w := worker.
+        New(func(context.Context) {}).
+        WithLock(l)
+
+// Job will be executed only if `job_lock_name` redis key not exists.
+w.Run(context.Background())
+```

@@ -44,16 +44,12 @@ or set custom schedule function
 
 Exclusive jobs
 
-Control concurrent execution around single or multiple instances by redis locks
+Control concurrent execution around single or multiple instances by lockers
 
 	worker.
 		New(func(context.Context) {}).
-		WithRedisLock(&worker.RedisLockOptions{}).
+		WithLock(worker.Locker).
 		Run(context.Background())
-
-or set custom locker
-
-	w.WithLock(worker.Locker)
 
 Observe execution time
 
